@@ -78,7 +78,7 @@
   .modal h2 { margin: 0 0 4px; font-size: 19px; }
   .modal .when { color: var(--primary); font-weight: 600; margin-bottom: 18px; }
   label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
-  input[type=text], textarea {
+  input[type=text], input[type=password], textarea {
     width: 100%; padding: 11px 12px; border: 1px solid #d1d5db; border-radius: 8px;
     font-size: 15px; font-family: inherit; resize: vertical;
   }
@@ -132,7 +132,10 @@
   <!-- ===== Кабинет юриста ===== -->
   <div id="admin-view" style="display:none;">
     <div class="day-card">
-      <button class="btn-ghost" style="flex:none; margin-bottom:14px;" onclick="showClient()">← К расписанию</button>
+      <div style="display:flex; gap:10px; margin-bottom:14px;">
+        <button class="btn-ghost" style="flex:none;" onclick="showClient()">← К расписанию</button>
+        <button class="btn-ghost" style="flex:none;" onclick="logout()">Выйти</button>
+      </div>
       <h2 style="margin:0 0 12px;">Кабинет юриста — записи клиентов</h2>
       <div id="admin-content"></div>
     </div>
@@ -160,6 +163,22 @@
   </div>
 </div>
 
+<!-- Модалка входа юриста -->
+<div class="overlay" id="login-overlay">
+  <div class="modal">
+    <h2>Вход для юриста</h2>
+    <div class="when">Кабинет доступен только сотруднику</div>
+    <label for="l-email">Email</label>
+    <input type="text" id="l-email" placeholder="urist@itnimax.ru" autocomplete="username">
+    <label for="l-password">Пароль</label>
+    <input type="password" id="l-password" placeholder="••••••••" autocomplete="current-password">
+    <div class="actions">
+      <button class="btn-ghost" onclick="closeLogin()">Отмена</button>
+      <button class="btn-primary" id="btn-login" onclick="doLogin()">Войти</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -171,7 +190,6 @@ const SUPABASE_URL = "https://lwxwheafucjldjrxxcpp.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3eHdoZWFmdWNqbGRqcnh4Y3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3OTYzNTYsImV4cCI6MjA5NzM3MjM1Nn0.tnzWlDH-OjNqkpm39XtU_yy9SkK1NPsbhOKsUMZkNBo";
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const ADMIN_PASSWORD = "urist2026";   // пароль кабинета юриста (прототип)
 const WEEKS_AHEAD = 2;                // на сколько недель вперёд показывать
 const SLOT_MIN = 30;                  // длительность окна, мин
 
@@ -193,7 +211,7 @@ function slotKey(dateStr, time) { return dateStr + "_" + time; }
 
 // Возвращает множество занятых слотов в виде { "YYYY-MM-DD_HH:MM": true }
 async function fetchTakenSlots() {
-  const { data, error } = await db.from("bookings").select("date, time");
+  const { data, error } = await db.from("taken_slots").select("date, time");
   if (error) { console.error(error); showToast("Ошибка связи с базой", true); return null; }
   const taken = {};
   data.forEach(r => { taken[slotKey(r.date, r.time)] = true; });
@@ -335,11 +353,39 @@ function showToast(msg, isError) {
 /* ============================================================
    Кабинет юриста
    ============================================================ */
-function openAdmin() {
-  const pwd = prompt("Введите пароль кабинета юриста:");
-  if (pwd === null) return;
-  if (pwd !== ADMIN_PASSWORD) { showToast("Неверный пароль", true); return; }
+async function openAdmin() {
+  const { data } = await db.auth.getSession();
+  if (data.session) { showAdmin(); return; }   // уже вошёл
+  openLogin();
+}
+
+function openLogin() {
+  document.getElementById("l-email").value = "";
+  document.getElementById("l-password").value = "";
+  document.getElementById("login-overlay").classList.add("open");
+  document.getElementById("l-email").focus();
+}
+function closeLogin() { document.getElementById("login-overlay").classList.remove("open"); }
+
+async function doLogin() {
+  const email = document.getElementById("l-email").value.trim();
+  const password = document.getElementById("l-password").value;
+  if (!email || !password) { showToast("Введите email и пароль", true); return; }
+
+  const btn = document.getElementById("btn-login");
+  btn.disabled = true; btn.textContent = "Вход…";
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = "Войти";
+
+  if (error) { showToast("Неверный email или пароль", true); return; }
+  closeLogin();
   showAdmin();
+}
+
+async function logout() {
+  await db.auth.signOut();
+  showClient();
+  showToast("Вы вышли из кабинета");
 }
 
 function showAdmin() {
@@ -398,6 +444,9 @@ function escapeHtml(s) {
    ============================================================ */
 document.getElementById("overlay").addEventListener("click", e => {
   if (e.target.id === "overlay") closeModal();
+});
+document.getElementById("login-overlay").addEventListener("click", e => {
+  if (e.target.id === "login-overlay") closeLogin();
 });
 renderSchedule();
 </script>
