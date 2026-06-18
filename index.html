@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Запись на консультацию к юристу</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --primary: #2c5f8a;
+    --primary-dark: #1f4666;
+    --free: #e8f3ea;
+    --free-border: #57a05f;
+    --busy: #ececec;
+    --busy-text: #9a9a9a;
+    --text: #1f2a37;
+    --muted: #6b7280;
+    --shadow: 0 2px 12px rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    background: var(--primary);
+    color: #fff;
+    padding: 24px 20px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 6px; font-size: 22px; }
+  header p { margin: 0; opacity: .9; font-size: 14px; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px 60px; }
+
+  .legend {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    justify-content: center; margin-bottom: 24px; font-size: 13px; color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .dot.free { background: var(--free); border: 1px solid var(--free-border); }
+  .dot.busy { background: var(--busy); border: 1px solid #ccc; }
+
+  .day-card {
+    background: var(--card); border-radius: 12px; box-shadow: var(--shadow);
+    padding: 16px 18px; margin-bottom: 18px;
+  }
+  .day-title { font-size: 16px; font-weight: 600; margin: 0 0 14px; }
+  .day-title small { font-weight: 400; color: var(--muted); margin-left: 8px; }
+  .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+  .slot {
+    border: 1px solid var(--free-border); background: var(--free);
+    border-radius: 8px; padding: 12px 6px; text-align: center;
+    font-size: 15px; font-weight: 500; cursor: pointer; transition: transform .08s, box-shadow .08s;
+  }
+  .slot:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,.12); }
+  .slot.busy {
+    background: var(--busy); border-color: #d8d8d8; color: var(--busy-text);
+    cursor: not-allowed; text-decoration: line-through;
+  }
+  .slot.busy:hover { transform: none; box-shadow: none; }
+  .slot .sub { display:block; font-size: 11px; font-weight: 400; color: var(--busy-text); margin-top: 2px; }
+
+  /* Modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 14px; width: 100%; max-width: 440px;
+    padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,.25);
+  }
+  .modal h2 { margin: 0 0 4px; font-size: 19px; }
+  .modal .when { color: var(--primary); font-weight: 600; margin-bottom: 18px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+  input[type=text], textarea {
+    width: 100%; padding: 11px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 15px; font-family: inherit; resize: vertical;
+  }
+  input:focus, textarea:focus { outline: 2px solid var(--primary); border-color: var(--primary); }
+  .actions { display: flex; gap: 10px; margin-top: 22px; }
+  button {
+    font: inherit; border: none; border-radius: 8px; padding: 12px 16px;
+    cursor: pointer; font-weight: 600; flex: 1;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-ghost { background: #eef0f3; color: var(--text); }
+  .btn-ghost:hover { background: #e2e5ea; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1f8a4d; color: #fff; padding: 12px 22px; border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.25); display: none; z-index: 60; font-size: 14px;
+  }
+  .toast.show { display: block; }
+
+  footer { text-align: center; padding: 24px; font-size: 12px; color: var(--muted); }
+  footer a { color: var(--muted); cursor: pointer; text-decoration: underline; }
+
+  /* Admin */
+  .admin-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+  .admin-table th, .admin-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: top; }
+  .admin-table th { background: #f0f3f7; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .empty { color: var(--muted); padding: 30px; text-align: center; }
+  .del-btn { background: #fbeaea; color: #b13a3a; padding: 6px 10px; font-size: 12px; flex: none; }
+  .del-btn:hover { background: #f5d6d6; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="hdr-title">Запись на консультацию к юрисконсульту ITNIMAX</h1>
+  <p id="hdr-sub">Выберите свободное окно. Консультация длится до 30 минут.</p>
+</header>
+
+<div class="wrap">
+  <!-- ===== Экран клиента ===== -->
+  <div id="client-view">
+    <div class="legend">
+      <span><i class="dot free"></i> Свободно — можно записаться</span>
+      <span><i class="dot busy"></i> Занято</span>
+    </div>
+    <div id="schedule"></div>
+  </div>
+
+  <!-- ===== Кабинет юриста ===== -->
+  <div id="admin-view" style="display:none;">
+    <div class="day-card">
+      <button class="btn-ghost" style="flex:none; margin-bottom:14px;" onclick="showClient()">← К расписанию</button>
+      <h2 style="margin:0 0 12px;">Кабинет юриста — записи клиентов</h2>
+      <div id="admin-content"></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Прототип · данные сохраняются только в этом браузере ·
+  <a onclick="openAdmin()">Кабинет юриста</a>
+</footer>
+
+<!-- Модалка записи -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2>Запись на консультацию</h2>
+    <div class="when" id="modal-when"></div>
+    <label for="f-entity">Название юридического лица *</label>
+    <input type="text" id="f-entity" placeholder="ООО «Ромашка»" maxlength="120">
+    <label for="f-question">Кратко суть вопроса *</label>
+    <textarea id="f-question" rows="3" placeholder="Например: спор по договору поставки" maxlength="500"></textarea>
+    <div class="actions">
+      <button class="btn-ghost" onclick="closeModal()">Отмена</button>
+      <button class="btn-primary" id="btn-submit" onclick="submitBooking()">Записаться</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============================================================
+   НАСТРОЙКИ — менять здесь
+   ============================================================ */
+const SUPABASE_URL = "https://lwxwheafucjldjrxxcpp.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3eHdoZWFmdWNqbGRqcnh4Y3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3OTYzNTYsImV4cCI6MjA5NzM3MjM1Nn0.tnzWlDH-OjNqkpm39XtU_yy9SkK1NPsbhOKsUMZkNBo";
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const ADMIN_PASSWORD = "urist2026";   // пароль кабинета юриста (прототип)
+const WEEKS_AHEAD = 2;                // на сколько недель вперёд показывать
+const SLOT_MIN = 30;                  // длительность окна, мин
+
+// Расписание по дням недели (0=Вс,1=Пн,2=Вт,3=Ср,4=Чт,5=Пт,6=Сб)
+// Для каждого дня — список интервалов [начало, конец]
+const SCHEDULE = {
+  1: [["09:00", "13:00"]],                      // Понедельник
+  3: [["09:00", "13:00"], ["14:00", "17:00"]],  // Среда
+  4: [["09:00", "13:00"]],                      // Четверг
+};
+
+const WEEKDAYS = ["воскресенье","понедельник","вторник","среда","четверг","пятница","суббота"];
+const MONTHS = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+
+/* ============================================================
+   Данные (Supabase)
+   ============================================================ */
+function slotKey(dateStr, time) { return dateStr + "_" + time; }
+
+// Возвращает множество занятых слотов в виде { "YYYY-MM-DD_HH:MM": true }
+async function fetchTakenSlots() {
+  const { data, error } = await db.from("bookings").select("date, time");
+  if (error) { console.error(error); showToast("Ошибка связи с базой", true); return null; }
+  const taken = {};
+  data.forEach(r => { taken[slotKey(r.date, r.time)] = true; });
+  return taken;
+}
+
+// Возвращает все записи (для кабинета юриста)
+async function fetchAllBookings() {
+  const { data, error } = await db.from("bookings")
+    .select("*").order("date").order("time");
+  if (error) { console.error(error); showToast("Ошибка связи с базой", true); return null; }
+  return data;
+}
+
+/* ============================================================
+   Генерация окон
+   ============================================================ */
+function timeToMin(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
+function minToTime(x) { return String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0"); }
+function fmtDate(d) {
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), day = String(d.getDate()).padStart(2,"0");
+  return y+"-"+m+"-"+day;
+}
+
+function buildDays() {
+  const days = [];
+  const today = new Date(); today.setHours(0,0,0,0);
+  const totalDays = WEEKS_AHEAD * 7;
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(today); d.setDate(today.getDate()+i);
+    const wd = d.getDay();
+    if (!SCHEDULE[wd]) continue;
+    const slots = [];
+    SCHEDULE[wd].forEach(([from,to]) => {
+      for (let t = timeToMin(from); t + SLOT_MIN <= timeToMin(to); t += SLOT_MIN) {
+        slots.push(minToTime(t));
+      }
+    });
+    days.push({ date: d, dateStr: fmtDate(d), slots });
+  }
+  return days;
+}
+
+/* ============================================================
+   Отрисовка расписания (клиент)
+   ============================================================ */
+async function renderSchedule() {
+  const root = document.getElementById("schedule");
+  root.innerHTML = '<div class="empty">Загрузка расписания…</div>';
+
+  const bookings = await fetchTakenSlots();
+  if (bookings === null) { root.innerHTML = '<div class="empty">Не удалось загрузить расписание. Обновите страницу.</div>'; return; }
+
+  const days = buildDays();
+  root.innerHTML = "";
+
+  if (days.length === 0) { root.innerHTML = '<div class="empty">Нет доступных дней.</div>'; return; }
+
+  days.forEach(day => {
+    const card = document.createElement("div");
+    card.className = "day-card";
+    const title = `${WEEKDAYS[day.date.getDay()]}, ${day.date.getDate()} ${MONTHS[day.date.getMonth()]}`;
+    const free = day.slots.filter(t => !bookings[slotKey(day.dateStr,t)]).length;
+
+    let html = `<div class="day-title">${title.charAt(0).toUpperCase()+title.slice(1)}<small>свободно окон: ${free} из ${day.slots.length}</small></div><div class="slots">`;
+    day.slots.forEach(t => {
+      const busy = !!bookings[slotKey(day.dateStr,t)];
+      if (busy) {
+        html += `<div class="slot busy" title="Занято">${t}<span class="sub">занято</span></div>`;
+      } else {
+        html += `<div class="slot" onclick="openModal('${day.dateStr}','${t}','${title.replace(/'/g,"")}')">${t}</div>`;
+      }
+    });
+    html += `</div>`;
+    card.innerHTML = html;
+    root.appendChild(card);
+  });
+}
+
+/* ============================================================
+   Модалка записи
+   ============================================================ */
+let current = { dateStr: null, time: null };
+
+function openModal(dateStr, time, title) {
+  current = { dateStr, time };
+  document.getElementById("modal-when").textContent = `${title}, ${time}`;
+  document.getElementById("f-entity").value = "";
+  document.getElementById("f-question").value = "";
+  document.getElementById("overlay").classList.add("open");
+  document.getElementById("f-entity").focus();
+}
+function closeModal() { document.getElementById("overlay").classList.remove("open"); }
+
+async function submitBooking() {
+  const entity = document.getElementById("f-entity").value.trim();
+  const question = document.getElementById("f-question").value.trim();
+  if (!entity || !question) { showToast("Заполните оба поля", true); return; }
+
+  const btn = document.getElementById("btn-submit");
+  btn.disabled = true; btn.textContent = "Записываем…";
+
+  const { error } = await db.from("bookings").insert({
+    date: current.dateStr, time: current.time, entity, question
+  });
+
+  btn.disabled = false; btn.textContent = "Записаться";
+
+  if (error) {
+    if (error.code === "23505") {   // нарушение unique(date,time) — слот успели занять
+      showToast("Это окно только что заняли. Выберите другое.", true);
+    } else {
+      console.error(error);
+      showToast("Не удалось записаться. Попробуйте ещё раз.", true);
+    }
+    closeModal();
+    renderSchedule();
+    return;
+  }
+
+  closeModal();
+  renderSchedule();
+  showToast("Вы записаны! Юрист ждёт вас в выбранное время.");
+}
+
+/* ============================================================
+   Toast
+   ============================================================ */
+let toastTimer;
+function showToast(msg, isError) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.style.background = isError ? "#b13a3a" : "#1f8a4d";
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 3000);
+}
+
+/* ============================================================
+   Кабинет юриста
+   ============================================================ */
+function openAdmin() {
+  const pwd = prompt("Введите пароль кабинета юриста:");
+  if (pwd === null) return;
+  if (pwd !== ADMIN_PASSWORD) { showToast("Неверный пароль", true); return; }
+  showAdmin();
+}
+
+function showAdmin() {
+  document.getElementById("client-view").style.display = "none";
+  document.getElementById("admin-view").style.display = "block";
+  document.getElementById("hdr-title").textContent = "Кабинет юриста";
+  document.getElementById("hdr-sub").textContent = "Список записей клиентов";
+  renderAdmin();
+}
+function showClient() {
+  document.getElementById("admin-view").style.display = "none";
+  document.getElementById("client-view").style.display = "block";
+  document.getElementById("hdr-title").textContent = "Запись на консультацию к юрисконсульту ITNIMAX";
+  document.getElementById("hdr-sub").textContent = "Выберите свободное окно. Консультация длится до 30 минут.";
+  renderSchedule();
+}
+
+async function renderAdmin() {
+  const root = document.getElementById("admin-content");
+  root.innerHTML = '<div class="empty">Загрузка…</div>';
+
+  const list = await fetchAllBookings();
+  if (list === null) { root.innerHTML = '<div class="empty">Не удалось загрузить записи. Обновите страницу.</div>'; return; }
+  if (list.length === 0) { root.innerHTML = '<div class="empty">Записей пока нет.</div>'; return; }
+
+  let html = `<table class="admin-table"><thead><tr>
+    <th>Дата</th><th>Время</th><th>Юр. лицо</th><th>Вопрос</th><th></th></tr></thead><tbody>`;
+  list.forEach(b => {
+    const d = new Date(b.date+"T00:00:00");
+    const dateLabel = `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+    html += `<tr>
+      <td>${dateLabel}</td>
+      <td><b>${b.time}</b></td>
+      <td>${escapeHtml(b.entity)}</td>
+      <td>${escapeHtml(b.question)}</td>
+      <td><button class="del-btn" onclick="cancelBooking('${b.date}','${b.time}')">Отменить</button></td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  root.innerHTML = html;
+}
+
+async function cancelBooking(dateStr, time) {
+  if (!confirm("Отменить эту запись? Окно снова станет свободным.")) return;
+  const { error } = await db.from("bookings").delete().eq("date", dateStr).eq("time", time);
+  if (error) { console.error(error); showToast("Не удалось отменить", true); return; }
+  renderAdmin();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ============================================================
+   Старт
+   ============================================================ */
+document.getElementById("overlay").addEventListener("click", e => {
+  if (e.target.id === "overlay") closeModal();
+});
+renderSchedule();
+</script>
+</body>
+</html>
